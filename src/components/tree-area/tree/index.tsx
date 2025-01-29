@@ -63,6 +63,18 @@ function insertNodeInto(
   return root
 }
 
+// Helper function to check if a folder has any sub-folders
+function hasSubFolders(nodes: Node[] | undefined): boolean {
+  if (!nodes) return false
+  return nodes.some((node) => node.nodes !== undefined)
+}
+
+// Helper function to check if node is droppable
+function isDroppable(node: Node): boolean {
+  // A node is droppable if it's a folder (has nodes array) and has no sub-folders
+  return node.nodes !== undefined && !hasSubFolders(node.nodes)
+}
+
 function TreeItem({
   data,
   level = 0,
@@ -79,6 +91,7 @@ function TreeItem({
   const [isOpen, setIsOpen] = useState(false)
   const { setSelectionType, setSelectedItem } = useTreeState()
   const isFolder = data.nodes !== undefined
+  const canDrop = isDroppable(data)
 
   function hasNoFolders(nodes: Node[]) {
     return nodes.every(
@@ -173,18 +186,12 @@ function TreeItem({
                 {...provided.dragHandleProps}
                 style={{
                   ...provided.draggableProps.style,
-                  backgroundColor: snapshot.isDragging
-                    ? '#F5F5FF'
-                    : 'transparent',
                 }}
-                className={`transition-all duration-200 ${
-                  snapshot.isDragging ? 'shadow-md' : ''
-                }`}
               >
                 {content(snapshot.isDragging)}
               </div>
               {snapshot.isDragging && (
-                <div className='opacity-75 bg-[#F5F5FF] border border-dashed border-[#EBEBFF]'>
+                <div className='opacity-50 bg-[#F5F5FF] border border-dashed border-[#EBEBFF]'>
                   {content(false)}
                 </div>
               )}
@@ -192,7 +199,10 @@ function TreeItem({
           )}
         </Draggable>
       ) : (
-        <Droppable droppableId={data.id}>
+        <Droppable
+          droppableId={data.id}
+          isDropDisabled={!canDrop} // Explicitly disable dropping for invalid targets
+        >
           {(provided, snapshot) => (
             <div>
               {content(false)}
@@ -200,7 +210,7 @@ function TreeItem({
                 ref={provided.innerRef}
                 {...provided.droppableProps}
                 className={`transition-colors duration-200 min-h-[2px] ${
-                  snapshot.isDraggingOver ? 'bg-[#F5F5FF]' : ''
+                  snapshot.isDraggingOver && canDrop ? 'bg-[#F5F5FF]' : ''
                 }`}
               >
                 {isOpen && data.nodes && (
@@ -253,8 +263,15 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
 
     const draggedNode = findNodeById(newTree, draggableId)
     const destinationFolder = findNodeById(newTree, destination.droppableId)
+    // const sourceFolder = findNodeById(newTree, source.droppableId)
 
     if (!draggedNode || !destinationFolder) return
+
+    // Double-check if destination is valid
+    if (!isDroppable(destinationFolder)) {
+      console.warn('Invalid drop target')
+      return
+    }
 
     // Initialize nodes array if it doesn't exist
     if (destinationFolder.nodes === undefined) {
@@ -267,7 +284,10 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
       return
     }
 
+    // Remove the node from its current position
     newTree = removeNodeById(newTree, draggableId)
+
+    // Insert the node into its new position
     newTree = insertNodeInto(
       newTree,
       draggedNode,
@@ -275,27 +295,37 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
       destination.index
     )
 
-    // Update selected item if the destination folder is currently selected
-    if (selectedItem && selectedItem.id === destination.droppableId) {
-      const updatedSelectedFolder = findNodeById(
-        newTree,
-        destination.droppableId
-      )
-      if (updatedSelectedFolder) {
-        setSelectedItem(updatedSelectedFolder)
+    // Update selected item if it's affected by the drag operation
+    if (selectedItem) {
+      if (selectedItem.id === source.droppableId) {
+        // If the source folder is selected, update its state
+        const updatedSourceFolder = findNodeById(newTree, source.droppableId)
+        if (updatedSourceFolder) {
+          setSelectedItem(updatedSourceFolder)
+        }
+      } else if (selectedItem.id === destination.droppableId) {
+        // If the destination folder is selected, update its state
+        const updatedDestinationFolder = findNodeById(
+          newTree,
+          destination.droppableId
+        )
+        if (updatedDestinationFolder) {
+          setSelectedItem(updatedDestinationFolder)
+        }
       }
     }
 
+    // Call onTreeUpdate with the new tree structure
     onTreeUpdate(newTree)
   }
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div className='h-full flex flex-col overflow-hidden'>
-        <Droppable droppableId={data.id}>
+        <Droppable droppableId={data.id} isDropDisabled={true}>
           {(provided) => (
             <ul
-              className='flex-1 overflow-y-auto w-full overflow-x-auto'
+              className='flex-1 overflow-y-auto'
               ref={provided.innerRef}
               {...provided.droppableProps}
               style={{
