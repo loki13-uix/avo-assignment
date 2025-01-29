@@ -221,6 +221,8 @@ interface TreeProps {
 }
 
 function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
+  const { selectedItem, setSelectedItem } = useTreeState()
+
   const handleDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result
 
@@ -258,6 +260,17 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
       destination.droppableId,
       destination.index
     )
+
+    // Update selected item if the destination folder is currently selected
+    if (selectedItem && selectedItem.id === destination.droppableId) {
+      const updatedSelectedFolder = findNodeById(
+        newTree,
+        destination.droppableId
+      )
+      if (updatedSelectedFolder) {
+        setSelectedItem(updatedSelectedFolder)
+      }
+    }
 
     onTreeUpdate(newTree)
   }
