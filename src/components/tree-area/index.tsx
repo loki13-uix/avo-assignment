@@ -3,7 +3,7 @@ import E2ESection from './sections/e-2-e'
 
 function TreeArea() {
   return (
-    <div className='w-1/5 h-screen tree-area-shadow flex flex-col'>
+    <div className='w-1/4 h-screen tree-area-shadow flex flex-col'>
       <TestCasesSection />
       <E2ESection />
     </div>
