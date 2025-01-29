@@ -10,7 +10,7 @@ function App() {
   const [selectedItem, setSelectedItem] = useState<Node | null>(null)
 
   return (
-    <div className='w-screen h-screen flex'>
+    <div className='w-screen h-screen flex font-open-sans'>
       <TreeStateProvider
         tree={tree}
         setTree={setTree}

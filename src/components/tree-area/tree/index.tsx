@@ -277,7 +277,7 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className='p-1 size-full overflow-hidden text-[#495057]'>
+      <div className='p-1 size-full overflow-hidden text-base'>
         <Droppable droppableId={data.id}>
           {(provided) => (
             <ul

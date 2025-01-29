@@ -21,10 +21,10 @@ interface TableProps {
 
 function Table({ data, title, isLastTable }: TableProps) {
   return (
-    <div className='flex flex-col gap-2.5 mb-2.5 text-[13px] leading-[20px] text-[#495057]'>
+    <div className='flex flex-col gap-2.5 mb-2.5 text-[13px] leading-[20px] text-base'>
       <div className='w-full border border-[#E9ECEF] rounded'>
         <div className='flex items-center gap-2 bg-[#EDF3F8] border-b border-[#E9ECEF]'>
-          <div className='w-20 border-r border-l border-[#DFE7EF] h-full py-2.5 flex items-center justify-between px-2'>
+          <div className='w-20 border-r border-l border-border-secondary h-full py-2.5 flex items-center justify-between px-2'>
             <img src={Hamburger} alt='Hamburger' />
             <div className='size-5 bg-white border border-[#BDBDBD] rounded-[4px]' />
             <img src={ChevronDownGrey} alt='Chevron Down Grey' />
@@ -38,12 +38,18 @@ function Table({ data, title, isLastTable }: TableProps) {
         <table className='w-full border'>
           <thead className='bg-[#F6F9FC] border-b border-[#E9ECEF]'>
             <tr className='text-left font-semibold'>
-              <th className='w-20 px-2 py-1 border border-[#DFE7EF]'></th>
-              <th className='w-10 px-2 py-1 border border-[#DFE7EF]'>#</th>
-              <th className='px-2 py-1 border border-[#DFE7EF]'>Name</th>
-              <th className='px-2 py-1 border border-[#DFE7EF]'>Action</th>
-              <th className='px-2 py-1 border border-[#DFE7EF]'>Input value</th>
-              <th className='px-2 py-1 border border-[#DFE7EF]'>
+              <th className='w-20 px-2 py-1 border border-border-secondary'></th>
+              <th className='w-10 px-2 py-1 border border-border-secondary'>
+                #
+              </th>
+              <th className='px-2 py-1 border border-border-secondary'>Name</th>
+              <th className='px-2 py-1 border border-border-secondary'>
+                Action
+              </th>
+              <th className='px-2 py-1 border border-border-secondary'>
+                Input value
+              </th>
+              <th className='px-2 py-1 border border-border-secondary'>
                 Output value
               </th>
             </tr>
@@ -55,17 +61,19 @@ function Table({ data, title, isLastTable }: TableProps) {
                   <img src={Hamburger} alt='Hamburger' />
                   <div className='size-5 bg-white border border-[#BDBDBD] rounded-[4px]' />
                 </td>
-                <td className='px-2 py-1 border border-[#DFE7EF]'>{row.id}</td>
-                <td className='px-2 py-1 border border-[#DFE7EF]'>
+                <td className='px-2 py-1 border border-border-secondary'>
+                  {row.id}
+                </td>
+                <td className='px-2 py-1 border border-border-secondary'>
                   {row.name}
                 </td>
-                <td className='px-2 py-1 border border-[#DFE7EF]'>
+                <td className='px-2 py-1 border border-border-secondary'>
                   {row.action}
                 </td>
-                <td className='px-2 py-1 border border-[#DFE7EF]'>
+                <td className='px-2 py-1 border border-border-secondary'>
                   {row.inputValue}
                 </td>
-                <td className='px-2 py-1 border border-[#DFE7EF]'>
+                <td className='px-2 py-1 border border-border-secondary'>
                   {row.outputValue}
                 </td>
               </tr>

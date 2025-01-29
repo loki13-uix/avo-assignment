@@ -9,14 +9,14 @@ type Props = {
 
 function TitleAndSearch({ title, image, chevronImage }: Props) {
   return (
-    <div className='flex flex-col gap-2.5 w-full border-b border-[#DEE2E6] px-4 pt-2.5 pb-4'>
+    <div className='flex flex-col gap-2.5 w-full border-b border-border-primary px-4 pt-2.5 pb-4'>
       <div className='w-full flex items-center justify-between'>
         <div className='flex items-center gap-1'>
           {chevronImage && (
             <img src={chevronImage} alt='chevron' className='size-4 mr-1' />
           )}
           <img src={image} alt='image' className='size-4' />
-          <h4 className='text-[#495057] text-[13px] leading-[20px]'>{title}</h4>
+          <h4 className='text-base base-font'>{title}</h4>
         </div>
 
         {/* Plus Button */}

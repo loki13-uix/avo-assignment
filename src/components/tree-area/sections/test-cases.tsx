@@ -10,12 +10,10 @@ function TestCasesSection() {
 
   const handleTreeUpdate = (newData: Node) => {
     setTreeData(newData)
-    // Optional: Persist changes to backend
-    // saveTreeDataToBackend(newData)
   }
 
   return (
-    <div className='w-full h-3/5 flex flex-col border-b border-[#DEE2E6]'>
+    <div className='w-full h-3/5 flex flex-col border-b border-border-primary'>
       <TitleAndSearch title='Test Cases' image={FolderIcon} />
       <Tree
         data={treeData}
