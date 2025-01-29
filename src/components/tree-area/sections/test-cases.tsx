@@ -1,22 +1,22 @@
-import { useState } from 'react'
 import FolderIcon from '../../../assets/folder.svg'
+import { useTreeState } from '../../../context/tree-state'
 import Tree from '../tree'
-import { erpTree } from './data/test-cases'
-import TitleAndSearch from './title-search'
 import { Node } from './data/test-cases'
+import TitleAndSearch from './title-search'
 
 function TestCasesSection() {
-  const [treeData, setTreeData] = useState<Node>(erpTree)
+  const { tree, setTree } = useTreeState()
 
   const handleTreeUpdate = (newData: Node) => {
-    setTreeData(newData)
+    console.log('New Data', newData)
+    setTree(newData)
   }
 
   return (
     <div className='w-full h-3/5 flex flex-col border-b border-border-primary'>
       <TitleAndSearch title='Test Cases' image={FolderIcon} />
       <Tree
-        data={treeData}
+        data={tree}
         noSelection={false}
         treeType='test-cases'
         onTreeUpdate={handleTreeUpdate}
