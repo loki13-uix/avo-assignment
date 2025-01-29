@@ -12,6 +12,7 @@ import FolderE2EIcon from '../../../assets/folder-e2e.svg'
 import FolderIcon from '../../../assets/folder.svg'
 import { useTreeState } from '../../../context/tree-state'
 import { Node } from '../sections/data/test-cases'
+import FileIconPurple from '../../../assets/file-purple.svg'
 
 type TreeType = 'test-cases' | 'e2e'
 
@@ -86,24 +87,38 @@ function TreeItem({
   }
 
   function handleClick() {
+    if (noSelection) {
+      if (isFolder) {
+        setIsOpen(!isOpen)
+      }
+      return
+    }
+
     if (isFolder) {
-      setIsOpen(!isOpen)
-
-      if (noSelection) return
-
       if (data.nodes && hasNoFolders(data.nodes)) {
-        setSelectionType('folder')
-        setSelectedItem(data)
+        if (isOpen) {
+          setIsOpen(false)
+          setSelectedItem(null)
+          setSelectionType('folder')
+        } else {
+          setSelectionType('folder')
+          setSelectedItem(data)
+        }
       }
     } else {
-      if (noSelection) return
       setSelectionType('file')
       setSelectedItem(data)
     }
+
+    setIsOpen(!isOpen)
   }
 
-  const content = (
-    <div className='w-full hover:bg-[#EBEBFF]'>
+  const content = (dragging: boolean) => (
+    <div
+      className={`w-full hover:bg-[#EBEBFF] ${
+        dragging ? 'bg-[#605BFF] text-white p-1.5' : ''
+      }`}
+    >
       <span
         className='flex items-center gap-1.5 py-1'
         onClick={handleClick}
@@ -129,7 +144,13 @@ function TreeItem({
           />
         ) : (
           <img
-            src={treeType === 'test-cases' ? FileIcon : FileE2EIcon}
+            src={
+              treeType === 'test-cases'
+                ? dragging
+                  ? FileIconPurple
+                  : FileIcon
+                : FileE2EIcon
+            }
             alt='file'
             className='ml-6 size-4'
           />
@@ -152,17 +173,19 @@ function TreeItem({
                 {...provided.dragHandleProps}
                 style={{
                   ...provided.draggableProps.style,
-                  opacity: snapshot.isDragging ? 0.7 : 1,
+                  backgroundColor: snapshot.isDragging
+                    ? '#F5F5FF'
+                    : 'transparent',
                 }}
                 className={`transition-all duration-200 ${
                   snapshot.isDragging ? 'shadow-md' : ''
                 }`}
               >
-                {content}
+                {content(snapshot.isDragging)}
               </div>
               {snapshot.isDragging && (
-                <div className='opacity-50 bg-[#F5F5FF] border border-dashed border-[#EBEBFF]'>
-                  {content}
+                <div className='opacity-75 bg-[#F5F5FF] border border-dashed border-[#EBEBFF]'>
+                  {content(false)}
                 </div>
               )}
             </>
@@ -172,7 +195,7 @@ function TreeItem({
         <Droppable droppableId={data.id}>
           {(provided, snapshot) => (
             <div>
-              {content}
+              {content(false)}
               <div
                 ref={provided.innerRef}
                 {...provided.droppableProps}
