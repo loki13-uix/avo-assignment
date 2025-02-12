@@ -13,6 +13,7 @@ import FolderIcon from '../../../assets/folder.svg'
 import { useTreeState } from '../../../context/tree-state'
 import { Node } from '../sections/data/test-cases'
 import FileIconPurple from '../../../assets/file-purple.svg'
+import useClickOutside from '../../../hooks/use-click-outside'
 
 type TreeType = 'test-cases' | 'e2e'
 
@@ -101,6 +102,10 @@ function TreeItem({
 
   // Add ref for textarea
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  useClickOutside(textareaRef, () => {
+    setIsEditing(false)
+    setEditedName(data.name)
+  })
 
   // Add useEffect to handle auto-resize
   useEffect(() => {
@@ -155,16 +160,15 @@ function TreeItem({
   }
 
   const handleNameSubmit = () => {
+    setIsEditing(false)
     if (editedName.trim() === '') {
       setEditedName(data.name)
-      setIsEditing(false)
       return
     }
 
     if (editedName !== data.name && onTreeUpdate) {
       handleNameChange(data.id, editedName)
     }
-    setIsEditing(false)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
