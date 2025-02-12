@@ -16,7 +16,10 @@ export const erpTree: Node = {
           id: '1.1.1',
           name: 'Onboarding',
           nodes: [
-            { id: '1.1.1.1', name: 'Document Collection' },
+            {
+              id: '1.1.1.1',
+              name: 'Please change toe collapse / expand behavior Please change toe collapse / expand behavior Please change toe collapse / expand behavior',
+            },
             { id: '1.1.1.2', name: 'Account Setup' },
             { id: '1.1.1.3', name: 'Orientation Session' },
             { id: '1.1.1.4', name: 'Equipment Allocation' },

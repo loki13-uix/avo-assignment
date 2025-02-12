@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   DragDropContext,
   Draggable,
@@ -75,23 +75,63 @@ function isDroppable(node: Node): boolean {
   return node.nodes !== undefined && !hasSubFolders(node.nodes)
 }
 
+// Add this helper function with the other helper functions
+// function updateNodeName(root: Node, id: string, newName: string): Node {
+//   // If this is the node we want to update, return a new node with the updated name
+//   console.log('Node', root.id)
+//   if (root.id === id) {
+//     console.log('Updating name', newName)
+//     return {
+//       ...root,
+//       name: newName,
+//     }
+
+//   // If this node has no children, return it unchanged
+//   if (!root.nodes) {
+//     console.log('No children', root.id)
+//     return root
+//   }
+
+//   // Create a new node with updated children
+//   return {
+//     ...root,
+//     nodes: root.nodes.map((node) => updateNodeName(node, id, newName)),
+//   }
+// }
+
 function TreeItem({
   data,
   level = 0,
   noSelection,
   treeType,
   index,
+  onTreeUpdate,
 }: {
   data: Node
   level?: number
   noSelection: boolean
   treeType: TreeType
   index: number
+  onTreeUpdate?: (newData: Node) => void
 }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedName, setEditedName] = useState(data.name)
   const { setSelectionType, setSelectedItem } = useTreeState()
   const isFolder = data.nodes !== undefined
   const canDrop = isDroppable(data)
+
+  // Add ref for textarea
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Add useEffect to handle auto-resize
+  useEffect(() => {
+    if (textareaRef.current && isEditing) {
+      const textarea = textareaRef.current
+      textarea.style.height = 'auto'
+      textarea.style.height = `${textarea.scrollHeight + 4}px`
+    }
+  }, [editedName, isEditing])
 
   function hasNoFolders(nodes: Node[]) {
     return nodes.every(
@@ -126,21 +166,66 @@ function TreeItem({
     setIsOpen(!isOpen)
   }
 
+  // const handleDoubleClick = (e: React.MouseEvent) => {
+  //   e.stopPropagation()
+  //   setIsEditing(true)
+  // }
+
+  // Update handleNameChange for textarea
+  const handleNameChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setEditedName(e.target.value)
+  }
+
+  const handleNameSubmit = () => {
+    if (editedName.trim() === '') {
+      // Reset to original name if empty
+      setEditedName(data.name)
+      setIsEditing(false)
+      return
+    }
+
+    if (editedName !== data.name && onTreeUpdate) {
+      // Only update if name has actually changed
+      const updatedNode = { ...data, name: editedName }
+      console.log('updatedNode', updatedNode.id)
+      onTreeUpdate(updatedNode)
+    }
+    setIsEditing(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter') {
+      handleNameSubmit()
+    } else if (e.key === 'Escape') {
+      setEditedName(data.name)
+      setIsEditing(false)
+    }
+  }
+
   const content = (dragging: boolean) => (
     <div
       className={`w-full hover:bg-[#EBEBFF] ${
         dragging ? 'bg-[#605BFF] text-white p-1.5' : ''
       }`}
+      onClick={() => {
+        if (!isFolder && !isEditing) {
+          handleClick()
+        }
+      }}
+      // onDoubleClick={handleDoubleClick}
     >
-      <span
-        className='flex items-center gap-1.5 py-1'
-        onClick={handleClick}
+      <div
+        className={`flex gap-1.5 py-1 items-start`}
         style={{ paddingLeft: `${level * 24}px` }}
       >
         {isFolder && (
           <button className='p-1 -m-1 cursor-pointer'>
             <img
               src={ChevronDownIcon}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (!isEditing) handleClick()
+              }}
               alt='chevron-down'
               className={`size-4 transition-transform duration-200 ${
                 isOpen ? 'rotate-180' : ''
@@ -169,15 +254,35 @@ function TreeItem({
           />
         )}
 
-        <span className='text-nowrap base-font'>{data.name}</span>
-      </span>
+        {isEditing ? (
+          <textarea
+            ref={textareaRef}
+            value={editedName}
+            onChange={handleNameChange}
+            onKeyDown={handleKeyDown}
+            onBlur={handleNameSubmit}
+            className='flex-1 bg-[#F5F5FF] px-2 py-1 rounded outline-none border border-[#605BFF] min-w-0 resize-none overflow-hidden base-font-input'
+            autoFocus
+            rows={1}
+            style={{
+              minHeight: '20px',
+            }}
+          />
+        ) : (
+          <span className='base-font whitespace-pre-wrap'>{data.name}</span>
+        )}
+      </div>
     </div>
   )
 
   return (
     <li className='cursor-pointer'>
-      {!isFolder && !noSelection ? (
-        <Draggable draggableId={data.id} index={index}>
+      {!isFolder && !noSelection && !isEditing ? (
+        <Draggable
+          draggableId={data.id}
+          index={index}
+          isDragDisabled={isEditing}
+        >
           {(provided, snapshot) => (
             <>
               <div
@@ -199,10 +304,7 @@ function TreeItem({
           )}
         </Draggable>
       ) : (
-        <Droppable
-          droppableId={data.id}
-          isDropDisabled={!canDrop} // Explicitly disable dropping for invalid targets
-        >
+        <Droppable droppableId={data.id} isDropDisabled={!canDrop || isEditing}>
           {(provided, snapshot) => (
             <div>
               {content(false)}
@@ -223,6 +325,11 @@ function TreeItem({
                         noSelection={noSelection}
                         treeType={treeType}
                         index={idx}
+                        onTreeUpdate={(updatedNode) => {
+                          if (onTreeUpdate) {
+                            onTreeUpdate(updatedNode)
+                          }
+                        }}
                       />
                     ))}
                   </ul>
@@ -341,6 +448,11 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
                   noSelection={noSelection}
                   treeType={treeType}
                   index={index}
+                  onTreeUpdate={(updatedNode) => {
+                    if (onTreeUpdate) {
+                      onTreeUpdate(updatedNode)
+                    }
+                  }}
                 />
               ))}
               {provided.placeholder}
