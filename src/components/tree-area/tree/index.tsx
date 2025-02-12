@@ -75,30 +75,6 @@ function isDroppable(node: Node): boolean {
   return node.nodes !== undefined && !hasSubFolders(node.nodes)
 }
 
-// Add this helper function with the other helper functions
-// function updateNodeName(root: Node, id: string, newName: string): Node {
-//   // If this is the node we want to update, return a new node with the updated name
-//   console.log('Node', root.id)
-//   if (root.id === id) {
-//     console.log('Updating name', newName)
-//     return {
-//       ...root,
-//       name: newName,
-//     }
-
-//   // If this node has no children, return it unchanged
-//   if (!root.nodes) {
-//     console.log('No children', root.id)
-//     return root
-//   }
-
-//   // Create a new node with updated children
-//   return {
-//     ...root,
-//     nodes: root.nodes.map((node) => updateNodeName(node, id, newName)),
-//   }
-// }
-
 function TreeItem({
   data,
   level = 0,
@@ -106,6 +82,7 @@ function TreeItem({
   treeType,
   index,
   onTreeUpdate,
+  handleNameChange,
 }: {
   data: Node
   level?: number
@@ -113,6 +90,7 @@ function TreeItem({
   treeType: TreeType
   index: number
   onTreeUpdate?: (newData: Node) => void
+  handleNameChange: (id: string, newName: string) => void
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -166,29 +144,25 @@ function TreeItem({
     setIsOpen(!isOpen)
   }
 
-  // const handleDoubleClick = (e: React.MouseEvent) => {
-  //   e.stopPropagation()
-  //   setIsEditing(true)
-  // }
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsEditing(true)
+  }
 
   // Update handleNameChange for textarea
-  const handleNameChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const onInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setEditedName(e.target.value)
   }
 
   const handleNameSubmit = () => {
     if (editedName.trim() === '') {
-      // Reset to original name if empty
       setEditedName(data.name)
       setIsEditing(false)
       return
     }
 
     if (editedName !== data.name && onTreeUpdate) {
-      // Only update if name has actually changed
-      const updatedNode = { ...data, name: editedName }
-      console.log('updatedNode', updatedNode.id)
-      onTreeUpdate(updatedNode)
+      handleNameChange(data.id, editedName)
     }
     setIsEditing(false)
   }
@@ -212,7 +186,7 @@ function TreeItem({
           handleClick()
         }
       }}
-      // onDoubleClick={handleDoubleClick}
+      onDoubleClick={handleDoubleClick}
     >
       <div
         className={`flex gap-1.5 py-1 items-start`}
@@ -258,7 +232,7 @@ function TreeItem({
           <textarea
             ref={textareaRef}
             value={editedName}
-            onChange={handleNameChange}
+            onChange={onInputChange}
             onKeyDown={handleKeyDown}
             onBlur={handleNameSubmit}
             className='flex-1 bg-[#F5F5FF] px-2 py-1 rounded outline-none border border-[#605BFF] min-w-0 resize-none overflow-hidden base-font-input'
@@ -330,6 +304,7 @@ function TreeItem({
                             onTreeUpdate(updatedNode)
                           }
                         }}
+                        handleNameChange={handleNameChange}
                       />
                     ))}
                   </ul>
@@ -426,6 +401,22 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
     onTreeUpdate(newTree)
   }
 
+  function handleNameChange(id: string, newName: string) {
+    const newTree = { ...data }
+
+    // Find the node to update
+    const nodeToUpdate = findNodeById(newTree, id)
+
+    // Update the name
+    if (nodeToUpdate) {
+      nodeToUpdate.name = newName
+    }
+
+    if (onTreeUpdate) {
+      onTreeUpdate(newTree)
+    }
+  }
+
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div className='h-full flex flex-col overflow-hidden'>
@@ -453,6 +444,7 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
                       onTreeUpdate(updatedNode)
                     }
                   }}
+                  handleNameChange={handleNameChange}
                 />
               ))}
               {provided.placeholder}
