@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   DragDropContext,
   Draggable,
@@ -8,17 +8,17 @@ import {
 import ChevronDownIcon from '../../../assets/chevron-down.svg'
 import FileE2EIcon from '../../../assets/file-e2e.svg'
 import FileIcon from '../../../assets/file-grey.svg'
+import FileIconPurple from '../../../assets/file-purple.svg'
 import FolderE2EIcon from '../../../assets/folder-e2e.svg'
 import FolderIcon from '../../../assets/folder.svg'
-import { useTreeState } from '../../../context/tree-state'
-import { Node } from '../sections/data/test-cases'
-import FileIconPurple from '../../../assets/file-purple.svg'
 import useClickOutside from '../../../hooks/use-click-outside'
+import useSelectionStore from '../../../store/selection'
+import { TreeNode } from '../sections/data/test-cases'
 
 type TreeType = 'test-cases' | 'e2e'
 
 // Helper functions
-function findNodeById(root: Node, id: string): Node | null {
+function findNodeById(root: TreeNode, id: string): TreeNode | null {
   if (root.id === id) return root
 
   if (!root.nodes) return null
@@ -31,7 +31,7 @@ function findNodeById(root: Node, id: string): Node | null {
   return null
 }
 
-function removeNodeById(root: Node, id: string): Node {
+function removeNodeById(root: TreeNode, id: string): TreeNode {
   if (!root.nodes) return root
 
   root.nodes = root.nodes.filter((node) => node.id !== id)
@@ -41,11 +41,11 @@ function removeNodeById(root: Node, id: string): Node {
 }
 
 function insertNodeInto(
-  root: Node,
-  nodeToInsert: Node,
+  root: TreeNode,
+  nodeToInsert: TreeNode,
   parentId: string,
   index: number
-): Node {
+): TreeNode {
   if (root.id === parentId && root.nodes) {
     root.nodes = [
       ...root.nodes.slice(0, index),
@@ -65,13 +65,13 @@ function insertNodeInto(
 }
 
 // Helper function to check if a folder has any sub-folders
-function hasSubFolders(nodes: Node[] | undefined): boolean {
+function hasSubFolders(nodes: TreeNode[] | undefined): boolean {
   if (!nodes) return false
   return nodes.some((node) => node.nodes !== undefined)
 }
 
 // Helper function to check if node is droppable
-function isDroppable(node: Node): boolean {
+function isDroppable(node: TreeNode): boolean {
   // A node is droppable if it's a folder (has nodes array) and has no sub-folders
   return node.nodes !== undefined && !hasSubFolders(node.nodes)
 }
@@ -85,18 +85,18 @@ function TreeItem({
   onTreeUpdate,
   handleNameChange,
 }: {
-  data: Node
+  data: TreeNode
   level?: number
   noSelection: boolean
   treeType: TreeType
   index: number
-  onTreeUpdate?: (newData: Node) => void
+  onTreeUpdate?: (newData: TreeNode) => void
   handleNameChange: (id: string, newName: string) => void
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState(data.name)
-  const { setSelectionType, setSelectedItem } = useTreeState()
+  const setSelectedItem = useSelectionStore((state) => state.setSelectedItem)
   const isFolder = data.nodes !== undefined
   const canDrop = isDroppable(data)
 
@@ -116,7 +116,14 @@ function TreeItem({
     }
   }, [editedName, isEditing])
 
-  function hasNoFolders(nodes: Node[]) {
+  useEffect(() => {
+    if (isEditing) {
+      textareaRef.current?.focus()
+      textareaRef.current?.select()
+    }
+  }, [isEditing])
+
+  function hasNoFolders(nodes: TreeNode[]) {
     return nodes.every(
       (node) => node.nodes === undefined || node.nodes?.length === 0
     )
@@ -134,16 +141,22 @@ function TreeItem({
       if (data.nodes && hasNoFolders(data.nodes)) {
         if (isOpen) {
           setIsOpen(false)
-          setSelectedItem(null)
-          setSelectionType('folder')
+          setSelectedItem({
+            type: 'folder',
+            item: null,
+          })
         } else {
-          setSelectionType('folder')
-          setSelectedItem(data)
+          setSelectedItem({
+            type: 'folder',
+            item: data,
+          })
         }
       }
     } else {
-      setSelectionType('file')
-      setSelectedItem(data)
+      setSelectedItem({
+        type: 'file',
+        item: data,
+      })
     }
 
     setIsOpen(!isOpen)
@@ -324,14 +337,14 @@ function TreeItem({
 }
 
 interface TreeProps {
-  data: Node
+  data: TreeNode
   noSelection: boolean
   treeType: TreeType
-  onTreeUpdate?: (newData: Node) => void
+  onTreeUpdate?: (newData: TreeNode) => void
 }
 
 function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
-  const { selectedItem, setSelectedItem } = useTreeState()
+  const { selectedItem, setSelectedItem } = useSelectionStore()
 
   const handleDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result
@@ -382,21 +395,27 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
     )
 
     // Update selected item if it's affected by the drag operation
-    if (selectedItem) {
-      if (selectedItem.id === source.droppableId) {
+    if (selectedItem.item) {
+      if (selectedItem.item.id === source.droppableId) {
         // If the source folder is selected, update its state
         const updatedSourceFolder = findNodeById(newTree, source.droppableId)
         if (updatedSourceFolder) {
-          setSelectedItem(updatedSourceFolder)
+          setSelectedItem({
+            type: 'folder',
+            item: updatedSourceFolder,
+          })
         }
-      } else if (selectedItem.id === destination.droppableId) {
+      } else if (selectedItem.item.id === destination.droppableId) {
         // If the destination folder is selected, update its state
         const updatedDestinationFolder = findNodeById(
           newTree,
           destination.droppableId
         )
         if (updatedDestinationFolder) {
-          setSelectedItem(updatedDestinationFolder)
+          setSelectedItem({
+            type: 'folder',
+            item: updatedDestinationFolder,
+          })
         }
       }
     }

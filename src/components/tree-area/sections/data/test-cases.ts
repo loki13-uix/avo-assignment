@@ -1,10 +1,10 @@
-export type Node = {
+export type TreeNode = {
   id: string
   name: string
-  nodes?: Node[]
+  nodes?: TreeNode[]
 }
 
-export const erpTree: Node = {
+export const erpTree: TreeNode = {
   id: '1',
   name: 'ERP',
   nodes: [

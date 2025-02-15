@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import FileIcon from '../../assets/file-grey.svg'
 import FolderIcon from '../../assets/folder.svg'
+import useSelectionStore from '../../store/selection'
 import MainNavbar from './navbar'
-import { useTreeState } from '../../context/tree-state'
 
 function FolderView() {
-  const { selectedItem } = useTreeState()
+  const { selectedItem } = useSelectionStore()
   const [showDropArea] = useState(false)
 
-  if (!selectedItem) return null
+  if (!selectedItem.item) return null
 
-  const FolderName = selectedItem.name
-  const testCases = selectedItem.nodes?.map((node) => node.name) || []
+  const FolderName = selectedItem.item.name
+  const testCases = selectedItem.item.nodes?.map((node) => node.name) || []
 
   return (
     <div className='w-full h-full flex flex-col base-font'>

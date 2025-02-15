@@ -1,14 +1,14 @@
-import { useTreeState } from '../../context/tree-state'
+import useSelectionStore from '../../store/selection'
 import FileView from './file-view'
 import FolderView from './folder-view'
 
 function Main() {
-  const { selectionType } = useTreeState()
+  const { selectedItem } = useSelectionStore()
 
   return (
     <main className='w-3/4 h-screen overflow-y-auto pb-20'>
-      {selectionType === 'folder' && <FolderView />}
-      {selectionType === 'file' && <FileView />}
+      {selectedItem.type === 'folder' && <FolderView />}
+      {selectedItem.type === 'file' && <FileView />}
     </main>
   )
 }
