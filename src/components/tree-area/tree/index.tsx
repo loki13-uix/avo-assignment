@@ -1,10 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  DragDropContext,
-  Draggable,
-  Droppable,
-  DropResult,
-} from 'react-beautiful-dnd'
+import { Draggable, Droppable } from 'react-beautiful-dnd'
 import ChevronDownIcon from '../../../assets/chevron-down.svg'
 import FileE2EIcon from '../../../assets/file-e2e.svg'
 import FileIcon from '../../../assets/file-grey.svg'
@@ -13,68 +8,10 @@ import FolderE2EIcon from '../../../assets/folder-e2e.svg'
 import FolderIcon from '../../../assets/folder.svg'
 import useClickOutside from '../../../hooks/use-click-outside'
 import useSelectionStore from '../../../store/selection'
+import { findNodeById, isDroppable } from '../../../utils/tree'
 import { TreeNode } from '../sections/data/test-cases'
 
 type TreeType = 'test-cases' | 'e2e'
-
-// Helper functions
-function findNodeById(root: TreeNode, id: string): TreeNode | null {
-  if (root.id === id) return root
-
-  if (!root.nodes) return null
-
-  for (const node of root.nodes) {
-    const found = findNodeById(node, id)
-    if (found) return found
-  }
-
-  return null
-}
-
-function removeNodeById(root: TreeNode, id: string): TreeNode {
-  if (!root.nodes) return root
-
-  root.nodes = root.nodes.filter((node) => node.id !== id)
-  root.nodes = root.nodes.map((node) => removeNodeById(node, id))
-
-  return root
-}
-
-function insertNodeInto(
-  root: TreeNode,
-  nodeToInsert: TreeNode,
-  parentId: string,
-  index: number
-): TreeNode {
-  if (root.id === parentId && root.nodes) {
-    root.nodes = [
-      ...root.nodes.slice(0, index),
-      nodeToInsert,
-      ...root.nodes.slice(index),
-    ]
-    return root
-  }
-
-  if (!root.nodes) return root
-
-  root.nodes = root.nodes.map((node) =>
-    insertNodeInto(node, nodeToInsert, parentId, index)
-  )
-
-  return root
-}
-
-// Helper function to check if a folder has any sub-folders
-function hasSubFolders(nodes: TreeNode[] | undefined): boolean {
-  if (!nodes) return false
-  return nodes.some((node) => node.nodes !== undefined)
-}
-
-// Helper function to check if node is droppable
-function isDroppable(node: TreeNode): boolean {
-  // A node is droppable if it's a folder (has nodes array) and has no sub-folders
-  return node.nodes !== undefined && !hasSubFolders(node.nodes)
-}
 
 function TreeItem({
   data,
@@ -259,7 +196,7 @@ function TreeItem({
       onDoubleClick={handleDoubleClick}
     >
       {dragging && isSelected && selectedItems.length > 1 && (
-        <div className="absolute -top-2 -right-2 bg-white text-[#605BFF] rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium shadow-sm">
+        <div className='absolute -top-2 -right-2 bg-white text-[#605BFF] rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium shadow-sm'>
           +{selectedItems.length - 1}
         </div>
       )}
@@ -318,9 +255,7 @@ function TreeItem({
             }}
           />
         ) : (
-          <span className='base-font whitespace-pre-wrap'>
-            {data.name}
-          </span>
+          <span className='base-font whitespace-pre-wrap'>{data.name}</span>
         )}
       </div>
     </div>
@@ -404,56 +339,6 @@ interface TreeProps {
 }
 
 function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
-  const setSelectedItems = useSelectionStore((state) => state.setSelectedItems)
-
-  const handleDragEnd = (result: DropResult) => {
-    const { source, destination, draggableId } = result
-
-    if (!destination || !onTreeUpdate) return
-
-    if (
-      source.droppableId === destination.droppableId &&
-      source.index === destination.index
-    ) {
-      return
-    }
-
-    let newTree = JSON.parse(JSON.stringify(data))
-    const draggedIds = draggableId.split(',')
-
-    // Handle multiple items
-    for (const id of draggedIds) {
-      const draggedNode = findNodeById(newTree, id)
-      const destinationFolder = findNodeById(newTree, destination.droppableId)
-
-      if (!draggedNode || !destinationFolder) continue
-
-      if (!isDroppable(destinationFolder)) {
-        console.warn('Invalid drop target')
-        continue
-      }
-
-      if (draggedNode.nodes !== undefined) {
-        console.warn('Can only drag files')
-        continue
-      }
-
-      newTree = removeNodeById(newTree, id)
-      newTree = insertNodeInto(
-        newTree,
-        draggedNode,
-        destination.droppableId,
-        destination.index
-      )
-    }
-
-    // Clear selection after drag
-    setSelectedItems([])
-
-    // Update the tree
-    onTreeUpdate(newTree)
-  }
-
   function handleNameChange(id: string, newName: string) {
     const newTree = { ...data }
 
@@ -469,43 +354,40 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
       onTreeUpdate(newTree)
     }
   }
-
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
-      <div className='h-full flex flex-col overflow-hidden'>
-        <Droppable droppableId={data.id} isDropDisabled={true}>
-          {(provided) => (
-            <ul
-              className='flex-1 overflow-y-auto'
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              style={{
-                padding: '12px',
-                minHeight: '100%',
-              }}
-            >
-              {data.nodes?.map((node, index) => (
-                <TreeItem
-                  key={node.id}
-                  data={node}
-                  level={0}
-                  noSelection={noSelection}
-                  treeType={treeType}
-                  index={index}
-                  onTreeUpdate={(updatedNode) => {
-                    if (onTreeUpdate) {
-                      onTreeUpdate(updatedNode)
-                    }
-                  }}
-                  handleNameChange={handleNameChange}
-                />
-              ))}
-              {provided.placeholder}
-            </ul>
-          )}
-        </Droppable>
-      </div>
-    </DragDropContext>
+    <div className='h-full flex flex-col overflow-hidden'>
+      <Droppable droppableId={data.id} isDropDisabled={true}>
+        {(provided) => (
+          <ul
+            className='flex-1 overflow-y-auto'
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            style={{
+              padding: '12px',
+              minHeight: '100%',
+            }}
+          >
+            {data.nodes?.map((node, index) => (
+              <TreeItem
+                key={node.id}
+                data={node}
+                level={0}
+                noSelection={noSelection}
+                treeType={treeType}
+                index={index}
+                onTreeUpdate={(updatedNode) => {
+                  if (onTreeUpdate) {
+                    onTreeUpdate(updatedNode)
+                  }
+                }}
+                handleNameChange={handleNameChange}
+              />
+            ))}
+            {provided.placeholder}
+          </ul>
+        )}
+      </Droppable>
+    </div>
   )
 }
 
