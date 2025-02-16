@@ -99,6 +99,9 @@ function TreeItem({
   const setSelectedItem = useSelectionStore((state) => state.setSelectedItem)
   const isFolder = data.nodes !== undefined
   const canDrop = isDroppable(data)
+  const [isSelected, setIsSelected] = useState(false)
+  const selectedItems = useSelectionStore((state) => state.selectedItems)
+  const setSelectedItems = useSelectionStore((state) => state.setSelectedItems)
 
   // Add ref for textarea
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -123,13 +126,22 @@ function TreeItem({
     }
   }, [isEditing])
 
+  useEffect(() => {
+    setIsSelected(selectedItems.some((item) => item.id === data.id))
+  }, [selectedItems, data.id])
+
   function hasNoFolders(nodes: TreeNode[]) {
     return nodes.every(
       (node) => node.nodes === undefined || node.nodes?.length === 0
     )
   }
 
-  function handleClick() {
+  function handleClick(e: React.MouseEvent) {
+    // Always stop event propagation for file clicks
+    if (!isFolder) {
+      e.stopPropagation()
+    }
+
     if (noSelection) {
       if (isFolder) {
         setIsOpen(!isOpen)
@@ -152,14 +164,59 @@ function TreeItem({
           })
         }
       }
+      setIsOpen(!isOpen)
     } else {
-      setSelectedItem({
-        type: 'file',
-        item: data,
-      })
-    }
+      // Handle multiple selection with Ctrl/Cmd key
+      if (e.ctrlKey || e.metaKey) {
+        console.log('ctrl/cmd Reached')
 
-    setIsOpen(!isOpen)
+        // If item is already selected, remove it from selection
+        if (selectedItems.some((item) => item.id === data.id)) {
+          const newSelectedItems = selectedItems.filter(
+            (item) => item.id !== data.id
+          )
+          setSelectedItems(newSelectedItems)
+
+          // If no items left selected, clear the selected item
+          if (newSelectedItems.length === 0) {
+            setSelectedItem({
+              type: 'file',
+              item: null,
+            })
+          }
+          return
+        }
+
+        // Only allow selection within the same parent folder
+        const currentParentId = data.id.split('.').slice(0, -1).join('.')
+        const canSelect =
+          selectedItems.length === 0 ||
+          selectedItems.every((item) => {
+            const itemParentId = item.id.split('.').slice(0, -1).join('.')
+            return itemParentId === currentParentId
+          })
+
+        if (canSelect) {
+          const newSelectedItems = [...selectedItems, data]
+          setSelectedItems(newSelectedItems)
+          setSelectedItem({
+            type: 'file',
+            item: data,
+          })
+
+          return
+        }
+
+        console.log(canSelect, 'ctrl/cmd Reached 2')
+      } else {
+        // Single click without Ctrl/Cmd key - clear all selections and select only this item
+        setSelectedItems([data])
+        setSelectedItem({
+          type: 'file',
+          item: data,
+        })
+      }
+    }
   }
 
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -195,16 +252,17 @@ function TreeItem({
 
   const content = (dragging: boolean) => (
     <div
-      className={`w-full hover:bg-[#EBEBFF] ${
-        dragging ? 'bg-[#605BFF] text-white p-1.5' : ''
-      }`}
-      onClick={() => {
-        if (!isFolder && !isEditing) {
-          handleClick()
-        }
-      }}
+      className={`w-full relative ${
+        isSelected && !dragging ? 'bg-[#EBEBFF]' : ''
+      } hover:bg-[#EBEBFF] ${dragging ? 'bg-[#605BFF] text-white p-1.5' : ''}`}
+      onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
+      {dragging && isSelected && selectedItems.length > 1 && (
+        <div className="absolute -top-2 -right-2 bg-white text-[#605BFF] rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium shadow-sm">
+          +{selectedItems.length - 1}
+        </div>
+      )}
       <div
         className={`flex gap-1.5 py-1 items-start`}
         style={{ paddingLeft: `${level * 24}px` }}
@@ -215,7 +273,7 @@ function TreeItem({
               src={ChevronDownIcon}
               onClick={(e) => {
                 e.stopPropagation()
-                if (!isEditing) handleClick()
+                if (!isEditing) handleClick(e)
               }}
               alt='chevron-down'
               className={`size-4 transition-transform duration-200 ${
@@ -260,7 +318,9 @@ function TreeItem({
             }}
           />
         ) : (
-          <span className='base-font whitespace-pre-wrap'>{data.name}</span>
+          <span className='base-font whitespace-pre-wrap'>
+            {data.name}
+          </span>
         )}
       </div>
     </div>
@@ -270,7 +330,11 @@ function TreeItem({
     <li className='cursor-pointer'>
       {!isFolder && !noSelection && !isEditing ? (
         <Draggable
-          draggableId={data.id}
+          draggableId={
+            isSelected && selectedItems.length > 1
+              ? selectedItems.map((item) => item.id).join(',')
+              : data.id
+          }
           index={index}
           isDragDisabled={isEditing}
         >
@@ -280,16 +344,12 @@ function TreeItem({
                 ref={provided.innerRef}
                 {...provided.draggableProps}
                 {...provided.dragHandleProps}
-                style={{
-                  ...provided.draggableProps.style,
-                }}
+                style={provided.draggableProps.style}
               >
                 {content(snapshot.isDragging)}
               </div>
               {snapshot.isDragging && (
-                <div className='opacity-50 bg-[#F5F5FF] border border-dashed border-[#EBEBFF]'>
-                  {content(false)}
-                </div>
+                <div className='opacity-50'>{content(false)}</div>
               )}
             </>
           )}
@@ -344,7 +404,7 @@ interface TreeProps {
 }
 
 function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
-  const { selectedItem, setSelectedItem } = useSelectionStore()
+  const setSelectedItems = useSelectionStore((state) => state.setSelectedItems)
 
   const handleDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result
@@ -359,68 +419,38 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
     }
 
     let newTree = JSON.parse(JSON.stringify(data))
+    const draggedIds = draggableId.split(',')
 
-    const draggedNode = findNodeById(newTree, draggableId)
-    const destinationFolder = findNodeById(newTree, destination.droppableId)
-    // const sourceFolder = findNodeById(newTree, source.droppableId)
+    // Handle multiple items
+    for (const id of draggedIds) {
+      const draggedNode = findNodeById(newTree, id)
+      const destinationFolder = findNodeById(newTree, destination.droppableId)
 
-    if (!draggedNode || !destinationFolder) return
+      if (!draggedNode || !destinationFolder) continue
 
-    // Double-check if destination is valid
-    if (!isDroppable(destinationFolder)) {
-      console.warn('Invalid drop target')
-      return
-    }
-
-    // Initialize nodes array if it doesn't exist
-    if (destinationFolder.nodes === undefined) {
-      destinationFolder.nodes = []
-    }
-
-    // Ensure we're only dragging files
-    if (draggedNode.nodes !== undefined) {
-      console.warn('Can only drag files')
-      return
-    }
-
-    // Remove the node from its current position
-    newTree = removeNodeById(newTree, draggableId)
-
-    // Insert the node into its new position
-    newTree = insertNodeInto(
-      newTree,
-      draggedNode,
-      destination.droppableId,
-      destination.index
-    )
-
-    // Update selected item if it's affected by the drag operation
-    if (selectedItem.item) {
-      if (selectedItem.item.id === source.droppableId) {
-        // If the source folder is selected, update its state
-        const updatedSourceFolder = findNodeById(newTree, source.droppableId)
-        if (updatedSourceFolder) {
-          setSelectedItem({
-            type: 'folder',
-            item: updatedSourceFolder,
-          })
-        }
-      } else if (selectedItem.item.id === destination.droppableId) {
-        // If the destination folder is selected, update its state
-        const updatedDestinationFolder = findNodeById(
-          newTree,
-          destination.droppableId
-        )
-        if (updatedDestinationFolder) {
-          setSelectedItem({
-            type: 'folder',
-            item: updatedDestinationFolder,
-          })
-        }
+      if (!isDroppable(destinationFolder)) {
+        console.warn('Invalid drop target')
+        continue
       }
+
+      if (draggedNode.nodes !== undefined) {
+        console.warn('Can only drag files')
+        continue
+      }
+
+      newTree = removeNodeById(newTree, id)
+      newTree = insertNodeInto(
+        newTree,
+        draggedNode,
+        destination.droppableId,
+        destination.index
+      )
     }
 
-    // Call onTreeUpdate with the new tree structure
+    // Clear selection after drag
+    setSelectedItems([])
+
+    // Update the tree
     onTreeUpdate(newTree)
   }
 
