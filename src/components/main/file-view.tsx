@@ -1,4 +1,4 @@
-import { useTreeState } from '../../context/tree-state'
+import useSelectionStore from '../../store/selection'
 import MainNavbar from './navbar'
 import Table from './table'
 import FileIcon from '../../assets/file-grey.svg'
@@ -35,11 +35,11 @@ const tableData = [
 ]
 
 function FileView() {
-  const { selectedItem } = useTreeState()
+  const { selectedItem } = useSelectionStore()
 
-  if (!selectedItem) return null
+  if (!selectedItem.item) return null
 
-  const FileName = selectedItem.name
+  const FileName = selectedItem.item.name
 
   const tablesArr = [1, 2, 3]
 

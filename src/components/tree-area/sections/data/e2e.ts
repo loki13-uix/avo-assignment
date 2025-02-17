@@ -1,6 +1,6 @@
-import { Node } from './test-cases'
+import { TreeNode } from './test-cases'
 
-export const avoBankTree: Node = {
+export const avoBankTree: TreeNode = {
   id: '1',
   name: 'Avo Bank',
   nodes: [

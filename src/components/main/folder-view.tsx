@@ -1,17 +1,18 @@
-import { useState } from 'react'
+import { Droppable } from 'react-beautiful-dnd'
 import FileIcon from '../../assets/file-grey.svg'
 import FolderIcon from '../../assets/folder.svg'
+import useSelectionStore from '../../store/selection'
+import { isDroppable } from '../../utils/tree'
 import MainNavbar from './navbar'
-import { useTreeState } from '../../context/tree-state'
 
 function FolderView() {
-  const { selectedItem } = useTreeState()
-  const [showDropArea] = useState(false)
+  const { selectedItem } = useSelectionStore()
 
-  if (!selectedItem) return null
+  if (!selectedItem.item) return null
 
-  const FolderName = selectedItem.name
-  const testCases = selectedItem.nodes?.map((node) => node.name) || []
+  const FolderName = selectedItem.item.name
+  const testCases = selectedItem.item.nodes?.map((node) => node.name) || []
+  const canDrop = isDroppable(selectedItem.item)
 
   return (
     <div className='w-full h-full flex flex-col base-font'>
@@ -33,12 +34,29 @@ function FolderView() {
         </div>
       ))}
 
-      {/* Test case drop area */}
-      {showDropArea && (
-        <div className='p-2 flex-1'>
-          <div className='size-full bg-[#605BFF0D] border border-[#605BFF] rounded-lg border-dashed' />
-        </div>
-      )}
+      {/* Droppable Area */}
+      <Droppable
+        droppableId={`folder-${selectedItem.item.id}`}
+        isDropDisabled={!canDrop}
+      >
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className='flex-1'
+          >
+            <div
+              className={`size-full transition-colors duration-200 ${
+                snapshot.isDraggingOver
+                  ? 'bg-[#F5F5FF] border border-[#605BFF] border-dashed rounded-lg'
+                  : ''
+              }`}
+              style={{ minHeight: '100px' }}
+            />
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
     </div>
   )
 }

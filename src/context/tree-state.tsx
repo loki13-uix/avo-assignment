@@ -1,13 +1,13 @@
 import { createContext, useContext } from 'react'
-import { Node } from '../components/tree-area/sections/data/test-cases'
+import { TreeNode } from '../components/tree-area/sections/data/test-cases'
 
 type TreeState = {
-  tree: Node
-  setTree: (tree: Node) => void
+  tree: TreeNode
+  setTree: (tree: TreeNode) => void
   selectionType: 'file' | 'folder'
-  selectedItem: Node | null
+  selectedItem: TreeNode | null
   setSelectionType: (selectionType: 'file' | 'folder') => void
-  setSelectedItem: (selectedItem: Node | null) => void
+  setSelectedItem: (selectedItem: TreeNode | null) => void
 } | null
 
 const TreeStateContext = createContext<TreeState>(null)
@@ -23,13 +23,13 @@ function TreeStateProvider({
   setSelectionType,
   setSelectedItem,
 }: {
-  tree: Node
+  tree: TreeNode
   children: React.ReactNode
-  setTree: (tree: Node) => void
+  setTree: (tree: TreeNode) => void
   selectionType: 'file' | 'folder'
-  selectedItem: Node | null
+  selectedItem: TreeNode | null
   setSelectionType: (selectionType: 'file' | 'folder') => void
-  setSelectedItem: (selectedItem: Node | null) => void
+  setSelectedItem: (selectedItem: TreeNode | null) => void
 }) {
   return (
     <Provider

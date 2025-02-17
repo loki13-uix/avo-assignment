@@ -1,80 +1,17 @@
-import { useState, useRef, useEffect } from 'react'
-import {
-  DragDropContext,
-  Draggable,
-  Droppable,
-  DropResult,
-} from 'react-beautiful-dnd'
+import { useEffect, useRef, useState } from 'react'
+import { Draggable, Droppable } from 'react-beautiful-dnd'
 import ChevronDownIcon from '../../../assets/chevron-down.svg'
 import FileE2EIcon from '../../../assets/file-e2e.svg'
 import FileIcon from '../../../assets/file-grey.svg'
+import FileIconPurple from '../../../assets/file-purple.svg'
 import FolderE2EIcon from '../../../assets/folder-e2e.svg'
 import FolderIcon from '../../../assets/folder.svg'
-import { useTreeState } from '../../../context/tree-state'
-import { Node } from '../sections/data/test-cases'
-import FileIconPurple from '../../../assets/file-purple.svg'
 import useClickOutside from '../../../hooks/use-click-outside'
+import useSelectionStore from '../../../store/selection'
+import { findNodeById, isDroppable } from '../../../utils/tree'
+import { TreeNode } from '../sections/data/test-cases'
 
 type TreeType = 'test-cases' | 'e2e'
-
-// Helper functions
-function findNodeById(root: Node, id: string): Node | null {
-  if (root.id === id) return root
-
-  if (!root.nodes) return null
-
-  for (const node of root.nodes) {
-    const found = findNodeById(node, id)
-    if (found) return found
-  }
-
-  return null
-}
-
-function removeNodeById(root: Node, id: string): Node {
-  if (!root.nodes) return root
-
-  root.nodes = root.nodes.filter((node) => node.id !== id)
-  root.nodes = root.nodes.map((node) => removeNodeById(node, id))
-
-  return root
-}
-
-function insertNodeInto(
-  root: Node,
-  nodeToInsert: Node,
-  parentId: string,
-  index: number
-): Node {
-  if (root.id === parentId && root.nodes) {
-    root.nodes = [
-      ...root.nodes.slice(0, index),
-      nodeToInsert,
-      ...root.nodes.slice(index),
-    ]
-    return root
-  }
-
-  if (!root.nodes) return root
-
-  root.nodes = root.nodes.map((node) =>
-    insertNodeInto(node, nodeToInsert, parentId, index)
-  )
-
-  return root
-}
-
-// Helper function to check if a folder has any sub-folders
-function hasSubFolders(nodes: Node[] | undefined): boolean {
-  if (!nodes) return false
-  return nodes.some((node) => node.nodes !== undefined)
-}
-
-// Helper function to check if node is droppable
-function isDroppable(node: Node): boolean {
-  // A node is droppable if it's a folder (has nodes array) and has no sub-folders
-  return node.nodes !== undefined && !hasSubFolders(node.nodes)
-}
 
 function TreeItem({
   data,
@@ -85,20 +22,23 @@ function TreeItem({
   onTreeUpdate,
   handleNameChange,
 }: {
-  data: Node
+  data: TreeNode
   level?: number
   noSelection: boolean
   treeType: TreeType
   index: number
-  onTreeUpdate?: (newData: Node) => void
+  onTreeUpdate?: (newData: TreeNode) => void
   handleNameChange: (id: string, newName: string) => void
 }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState(data.name)
-  const { setSelectionType, setSelectedItem } = useTreeState()
+  const setSelectedItem = useSelectionStore((state) => state.setSelectedItem)
   const isFolder = data.nodes !== undefined
   const canDrop = isDroppable(data)
+  const [isSelected, setIsSelected] = useState(false)
+  const selectedItems = useSelectionStore((state) => state.selectedItems)
+  const setSelectedItems = useSelectionStore((state) => state.setSelectedItems)
 
   // Add ref for textarea
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -116,13 +56,29 @@ function TreeItem({
     }
   }, [editedName, isEditing])
 
-  function hasNoFolders(nodes: Node[]) {
+  useEffect(() => {
+    if (isEditing) {
+      textareaRef.current?.focus()
+      textareaRef.current?.select()
+    }
+  }, [isEditing])
+
+  useEffect(() => {
+    setIsSelected(selectedItems.some((item) => item.id === data.id))
+  }, [selectedItems, data.id])
+
+  function hasNoFolders(nodes: TreeNode[]) {
     return nodes.every(
       (node) => node.nodes === undefined || node.nodes?.length === 0
     )
   }
 
-  function handleClick() {
+  function handleClick(e: React.MouseEvent) {
+    // Always stop event propagation for file clicks
+    if (!isFolder) {
+      e.stopPropagation()
+    }
+
     if (noSelection) {
       if (isFolder) {
         setIsOpen(!isOpen)
@@ -134,19 +90,70 @@ function TreeItem({
       if (data.nodes && hasNoFolders(data.nodes)) {
         if (isOpen) {
           setIsOpen(false)
-          setSelectedItem(null)
-          setSelectionType('folder')
+          setSelectedItem({
+            type: 'folder',
+            item: null,
+          })
         } else {
-          setSelectionType('folder')
-          setSelectedItem(data)
+          setSelectedItem({
+            type: 'folder',
+            item: data,
+          })
         }
       }
+      setIsOpen(!isOpen)
     } else {
-      setSelectionType('file')
-      setSelectedItem(data)
-    }
+      // Handle multiple selection with Ctrl/Cmd key
+      if (e.ctrlKey || e.metaKey) {
+        console.log('ctrl/cmd Reached')
 
-    setIsOpen(!isOpen)
+        // If item is already selected, remove it from selection
+        if (selectedItems.some((item) => item.id === data.id)) {
+          const newSelectedItems = selectedItems.filter(
+            (item) => item.id !== data.id
+          )
+          setSelectedItems(newSelectedItems)
+
+          // If no items left selected, clear the selected item
+          if (newSelectedItems.length === 0) {
+            setSelectedItem({
+              type: 'file',
+              item: null,
+            })
+          }
+          return
+        }
+
+        // Only allow selection within the same parent folder
+        const currentParentId = data.id.split('.').slice(0, -1).join('.')
+        const canSelect =
+          selectedItems.length === 0 ||
+          selectedItems.every((item) => {
+            const itemParentId = item.id.split('.').slice(0, -1).join('.')
+            return itemParentId === currentParentId
+          })
+
+        if (canSelect) {
+          const newSelectedItems = [...selectedItems, data]
+          setSelectedItems(newSelectedItems)
+          setSelectedItem({
+            type: 'file',
+            item: data,
+          })
+
+          return
+        }
+
+        console.log(canSelect, 'ctrl/cmd Reached 2')
+      } else {
+        // Single click without Ctrl/Cmd key - clear all selections and select only this item
+        setSelectedItems([data])
+        setSelectedItem({
+          type: 'file',
+          item: data,
+        })
+      }
+    }
   }
 
   const handleDoubleClick = (e: React.MouseEvent) => {
@@ -182,16 +189,17 @@ function TreeItem({
 
   const content = (dragging: boolean) => (
     <div
-      className={`w-full hover:bg-[#EBEBFF] ${
-        dragging ? 'bg-[#605BFF] text-white p-1.5' : ''
-      }`}
-      onClick={() => {
-        if (!isFolder && !isEditing) {
-          handleClick()
-        }
-      }}
+      className={`w-full relative ${
+        isSelected && !dragging ? 'bg-[#EBEBFF]' : ''
+      } hover:bg-[#EBEBFF] ${dragging ? 'bg-[#605BFF] text-white p-1.5' : ''}`}
+      onClick={handleClick}
       onDoubleClick={handleDoubleClick}
     >
+      {dragging && isSelected && selectedItems.length > 1 && (
+        <div className='absolute -top-2 -right-2 bg-white text-[#605BFF] rounded-full w-5 h-5 flex items-center justify-center text-xs font-medium shadow-sm'>
+          +{selectedItems.length - 1}
+        </div>
+      )}
       <div
         className={`flex gap-1.5 py-1 items-start`}
         style={{ paddingLeft: `${level * 24}px` }}
@@ -202,7 +210,7 @@ function TreeItem({
               src={ChevronDownIcon}
               onClick={(e) => {
                 e.stopPropagation()
-                if (!isEditing) handleClick()
+                if (!isEditing) handleClick(e)
               }}
               alt='chevron-down'
               className={`size-4 transition-transform duration-200 ${
@@ -257,7 +265,11 @@ function TreeItem({
     <li className='cursor-pointer'>
       {!isFolder && !noSelection && !isEditing ? (
         <Draggable
-          draggableId={data.id}
+          draggableId={
+            isSelected && selectedItems.length > 1
+              ? selectedItems.map((item) => item.id).join(',')
+              : data.id
+          }
           index={index}
           isDragDisabled={isEditing}
         >
@@ -267,16 +279,12 @@ function TreeItem({
                 ref={provided.innerRef}
                 {...provided.draggableProps}
                 {...provided.dragHandleProps}
-                style={{
-                  ...provided.draggableProps.style,
-                }}
+                style={provided.draggableProps.style}
               >
                 {content(snapshot.isDragging)}
               </div>
               {snapshot.isDragging && (
-                <div className='opacity-50 bg-[#F5F5FF] border border-dashed border-[#EBEBFF]'>
-                  {content(false)}
-                </div>
+                <div className='opacity-50'>{content(false)}</div>
               )}
             </>
           )}
@@ -324,87 +332,13 @@ function TreeItem({
 }
 
 interface TreeProps {
-  data: Node
+  data: TreeNode
   noSelection: boolean
   treeType: TreeType
-  onTreeUpdate?: (newData: Node) => void
+  onTreeUpdate?: (newData: TreeNode) => void
 }
 
 function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
-  const { selectedItem, setSelectedItem } = useTreeState()
-
-  const handleDragEnd = (result: DropResult) => {
-    const { source, destination, draggableId } = result
-
-    if (!destination || !onTreeUpdate) return
-
-    if (
-      source.droppableId === destination.droppableId &&
-      source.index === destination.index
-    ) {
-      return
-    }
-
-    let newTree = JSON.parse(JSON.stringify(data))
-
-    const draggedNode = findNodeById(newTree, draggableId)
-    const destinationFolder = findNodeById(newTree, destination.droppableId)
-    // const sourceFolder = findNodeById(newTree, source.droppableId)
-
-    if (!draggedNode || !destinationFolder) return
-
-    // Double-check if destination is valid
-    if (!isDroppable(destinationFolder)) {
-      console.warn('Invalid drop target')
-      return
-    }
-
-    // Initialize nodes array if it doesn't exist
-    if (destinationFolder.nodes === undefined) {
-      destinationFolder.nodes = []
-    }
-
-    // Ensure we're only dragging files
-    if (draggedNode.nodes !== undefined) {
-      console.warn('Can only drag files')
-      return
-    }
-
-    // Remove the node from its current position
-    newTree = removeNodeById(newTree, draggableId)
-
-    // Insert the node into its new position
-    newTree = insertNodeInto(
-      newTree,
-      draggedNode,
-      destination.droppableId,
-      destination.index
-    )
-
-    // Update selected item if it's affected by the drag operation
-    if (selectedItem) {
-      if (selectedItem.id === source.droppableId) {
-        // If the source folder is selected, update its state
-        const updatedSourceFolder = findNodeById(newTree, source.droppableId)
-        if (updatedSourceFolder) {
-          setSelectedItem(updatedSourceFolder)
-        }
-      } else if (selectedItem.id === destination.droppableId) {
-        // If the destination folder is selected, update its state
-        const updatedDestinationFolder = findNodeById(
-          newTree,
-          destination.droppableId
-        )
-        if (updatedDestinationFolder) {
-          setSelectedItem(updatedDestinationFolder)
-        }
-      }
-    }
-
-    // Call onTreeUpdate with the new tree structure
-    onTreeUpdate(newTree)
-  }
-
   function handleNameChange(id: string, newName: string) {
     const newTree = { ...data }
 
@@ -420,43 +354,40 @@ function Tree({ data, noSelection, treeType, onTreeUpdate }: TreeProps) {
       onTreeUpdate(newTree)
     }
   }
-
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
-      <div className='h-full flex flex-col overflow-hidden'>
-        <Droppable droppableId={data.id} isDropDisabled={true}>
-          {(provided) => (
-            <ul
-              className='flex-1 overflow-y-auto'
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              style={{
-                padding: '12px',
-                minHeight: '100%',
-              }}
-            >
-              {data.nodes?.map((node, index) => (
-                <TreeItem
-                  key={node.id}
-                  data={node}
-                  level={0}
-                  noSelection={noSelection}
-                  treeType={treeType}
-                  index={index}
-                  onTreeUpdate={(updatedNode) => {
-                    if (onTreeUpdate) {
-                      onTreeUpdate(updatedNode)
-                    }
-                  }}
-                  handleNameChange={handleNameChange}
-                />
-              ))}
-              {provided.placeholder}
-            </ul>
-          )}
-        </Droppable>
-      </div>
-    </DragDropContext>
+    <div className='h-full flex flex-col overflow-hidden'>
+      <Droppable droppableId={data.id} isDropDisabled={true}>
+        {(provided) => (
+          <ul
+            className='flex-1 overflow-y-auto'
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            style={{
+              padding: '12px',
+              minHeight: '100%',
+            }}
+          >
+            {data.nodes?.map((node, index) => (
+              <TreeItem
+                key={node.id}
+                data={node}
+                level={0}
+                noSelection={noSelection}
+                treeType={treeType}
+                index={index}
+                onTreeUpdate={(updatedNode) => {
+                  if (onTreeUpdate) {
+                    onTreeUpdate(updatedNode)
+                  }
+                }}
+                handleNameChange={handleNameChange}
+              />
+            ))}
+            {provided.placeholder}
+          </ul>
+        )}
+      </Droppable>
+    </div>
   )
 }
 
