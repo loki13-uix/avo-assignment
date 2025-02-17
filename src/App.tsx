@@ -15,15 +15,73 @@ function App() {
   const setSelectedItems = useSelectionStore((state) => state.setSelectedItems)
   const setTree = useTreeStore((state) => state.setTree)
   const tree = useTreeStore((state) => state.tree)
+  const selectedItem = useSelectionStore((state) => state.selectedItem)
+  const setSelectedItem = useSelectionStore((state) => state.setSelectedItem)
 
   function onTreeUpdate(newTree: TreeNode) {
     setTree(newTree)
+  }
+
+  function handleDragEndInFolder(result: DropResult) {
+    const { source, destination, draggableId } = result
+
+    if (!destination || !onTreeUpdate) return
+
+    // Make sure we cannot drop to the same folder
+    const destinationReformatted = destination.droppableId.split('-')[1]
+
+    const sourceFolder = findNodeById(tree, source.droppableId)
+    const destinationFolder = findNodeById(tree, destinationReformatted)
+
+    if (!sourceFolder || !destinationFolder) return
+
+    if (sourceFolder.id === destinationFolder.id) return
+
+    // Means we can drop to that folder, so we need to remove the node from the source folder and insert it into the destination folder
+    let newTree = JSON.parse(JSON.stringify(tree))
+    const draggedIds = draggableId.split(',')
+
+    for (const id of draggedIds) {
+      const draggedNode = findNodeById(newTree, id)
+      if (!draggedNode) continue
+
+      if (!isDroppable(destinationFolder)) {
+        console.warn('Invalid drop target')
+        continue
+      }
+
+      if (draggedNode.nodes !== undefined) {
+        console.warn('Can only drag files')
+        continue
+      }
+
+      newTree = removeNodeById(newTree, id)
+      newTree = insertNodeInto(
+        newTree,
+        draggedNode,
+        destinationFolder.id,
+        destination.index
+      )
+    }
+
+    if (selectedItem.type === 'folder' && selectedItem.item?.id) {
+      const newSelectedItem = findNodeById(newTree, selectedItem.item.id)
+      if (newSelectedItem)
+        setSelectedItem({ type: 'folder', item: newSelectedItem })
+    }
+
+    setSelectedItems([])
+    onTreeUpdate(newTree)
   }
 
   const handleDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result
 
     if (!destination || !onTreeUpdate) return
+
+    if (destination.droppableId.startsWith('folder-')) {
+      return handleDragEndInFolder(result)
+    }
 
     if (
       source.droppableId === destination.droppableId &&
