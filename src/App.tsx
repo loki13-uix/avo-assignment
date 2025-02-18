@@ -17,7 +17,6 @@ function App() {
   const tree = useTreeStore((state) => state.tree)
   const selectedItem = useSelectionStore((state) => state.selectedItem)
   const setSelectedItem = useSelectionStore((state) => state.setSelectedItem)
-  const lastClickedItem = useSelectionStore((state) => state.lastClickedItem)
   const setLastClickedItem = useSelectionStore(
     (state) => state.setLastClickedItem
   )
