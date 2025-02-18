@@ -73,7 +73,36 @@ function TreeItem({
     )
   }
 
+  function handleFolderClick(e: React.MouseEvent) {
+    e.stopPropagation()
+
+    if (noSelection) {
+      setIsOpen(!isOpen)
+      return
+    }
+
+    if (data.nodes && hasNoFolders(data.nodes)) {
+      if (isOpen) {
+        setIsOpen(false)
+        setSelectedItem({
+          type: 'folder',
+          item: null,
+        })
+      } else {
+        setSelectedItem({
+          type: 'folder',
+          item: data,
+        })
+      }
+    }
+    setIsOpen(!isOpen)
+  }
+
   function handleClick(e: React.MouseEvent) {
+    if (isFolder) {
+      return
+    }
+
     // Always stop event propagation for file clicks
     if (!isFolder) {
       e.stopPropagation()
@@ -105,8 +134,6 @@ function TreeItem({
     } else {
       // Handle multiple selection with Ctrl/Cmd key
       if (e.ctrlKey || e.metaKey) {
-        console.log('ctrl/cmd Reached')
-
         // If item is already selected, remove it from selection
         if (selectedItems.some((item) => item.id === data.id)) {
           const newSelectedItems = selectedItems.filter(
@@ -143,8 +170,6 @@ function TreeItem({
 
           return
         }
-
-        console.log(canSelect, 'ctrl/cmd Reached 2')
       } else {
         // Single click without Ctrl/Cmd key - clear all selections and select only this item
         setSelectedItems([data])
@@ -210,7 +235,7 @@ function TreeItem({
               src={ChevronDownIcon}
               onClick={(e) => {
                 e.stopPropagation()
-                if (!isEditing) handleClick(e)
+                if (!isEditing) handleFolderClick(e)
               }}
               alt='chevron-down'
               className={`size-4 transition-transform duration-200 ${
