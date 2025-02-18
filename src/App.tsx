@@ -17,6 +17,9 @@ function App() {
   const tree = useTreeStore((state) => state.tree)
   const selectedItem = useSelectionStore((state) => state.selectedItem)
   const setSelectedItem = useSelectionStore((state) => state.setSelectedItem)
+  const setLastClickedItem = useSelectionStore(
+    (state) => state.setLastClickedItem
+  )
 
   function onTreeUpdate(newTree: TreeNode) {
     setTree(newTree)
@@ -71,6 +74,7 @@ function App() {
     }
 
     setSelectedItems([])
+    setLastClickedItem(null)
     onTreeUpdate(newTree)
   }
 
@@ -121,6 +125,7 @@ function App() {
 
     // Clear selection after drag
     setSelectedItems([])
+    setLastClickedItem(null)
 
     // Update the tree
     onTreeUpdate(newTree)
