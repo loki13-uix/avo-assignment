@@ -58,3 +58,24 @@ export function isDroppable(node: TreeNode): boolean {
   // A node is droppable if it's a folder (has nodes array) and has no sub-folders
   return node.nodes !== undefined && !hasSubFolders(node.nodes)
 }
+
+// Helper function to find parent node of an item
+export function findParentNode(
+  root: TreeNode,
+  targetId: string
+): TreeNode | null {
+  if (!root.nodes) return null
+
+  // Check if any direct children match the target
+  if (root.nodes.some((node) => node.id === targetId)) {
+    return root
+  }
+
+  // Recursively search through children
+  for (const child of root.nodes) {
+    const found = findParentNode(child, targetId)
+    if (found) return found
+  }
+
+  return null
+}

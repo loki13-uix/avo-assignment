@@ -8,8 +8,9 @@ import FolderE2EIcon from '../../../assets/folder-e2e.svg'
 import FolderIcon from '../../../assets/folder.svg'
 import useClickOutside from '../../../hooks/use-click-outside'
 import useSelectionStore from '../../../store/selection'
-import { findNodeById, isDroppable } from '../../../utils/tree'
+import { findNodeById, findParentNode, isDroppable } from '../../../utils/tree'
 import { TreeNode } from '../sections/data/test-cases'
+import useTreeStore from '../../../store/tree'
 
 type TreeType = 'test-cases' | 'e2e'
 
@@ -39,6 +40,11 @@ function TreeItem({
   const [isSelected, setIsSelected] = useState(false)
   const selectedItems = useSelectionStore((state) => state.selectedItems)
   const setSelectedItems = useSelectionStore((state) => state.setSelectedItems)
+  const lastClickedItem = useSelectionStore((state) => state.lastClickedItem)
+  const setLastClickedItem = useSelectionStore(
+    (state) => state.setLastClickedItem
+  )
+  const tree = useTreeStore((state) => state.tree)
 
   // Add ref for textarea
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -103,7 +109,6 @@ function TreeItem({
       return
     }
 
-    // Always stop event propagation for file clicks
     if (!isFolder) {
       e.stopPropagation()
     }
@@ -132,7 +137,7 @@ function TreeItem({
       }
       setIsOpen(!isOpen)
     } else {
-      // Handle multiple selection with Ctrl/Cmd key
+      // Handle multiple selection with Ctrl/Cmd key or Shift key
       if (e.ctrlKey || e.metaKey) {
         // If item is already selected, remove it from selection
         if (selectedItems.some((item) => item.id === data.id)) {
@@ -170,13 +175,47 @@ function TreeItem({
 
           return
         }
+      } else if (e.shiftKey && lastClickedItem) {
+        // Find parent nodes for both current and last clicked items
+        const currentParent = findParentNode(tree, data.id)
+        const lastClickedParent = findParentNode(tree, lastClickedItem.id)
+
+        // Only allow shift selection within the same parent
+        if (
+          currentParent &&
+          lastClickedParent &&
+          currentParent.id === lastClickedParent.id
+        ) {
+          const siblings = currentParent.nodes || []
+
+          // Find indices of last clicked and current items
+          const lastIndex = siblings.findIndex(
+            (node) => node.id === lastClickedItem.id
+          )
+          const currentIndex = siblings.findIndex((node) => node.id === data.id)
+
+          if (lastIndex !== -1 && currentIndex !== -1) {
+            // Select all items between last clicked and current
+            const start = Math.min(lastIndex, currentIndex)
+            const end = Math.max(lastIndex, currentIndex)
+            const itemsToSelect = siblings.slice(start, end + 1)
+
+            setSelectedItems(itemsToSelect)
+            setSelectedItem({
+              type: 'file',
+              item: data,
+            })
+          }
+        }
       } else {
-        // Single click without Ctrl/Cmd key - clear all selections and select only this item
+        console.log('single click')
+        // Single click without modifier keys
         setSelectedItems([data])
         setSelectedItem({
           type: 'file',
           item: data,
         })
+        setLastClickedItem(data)
       }
     }
   }
@@ -280,7 +319,9 @@ function TreeItem({
             }}
           />
         ) : (
-          <span className='base-font whitespace-pre-wrap'>{data.name}</span>
+          <span className='base-font whitespace-pre-wrap select-none'>
+            {data.name}
+          </span>
         )}
       </div>
     </div>
